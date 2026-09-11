@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="คำนวณการจัดเรียงกล่องในตู้คอนเทนเนอร์ 20/40 ฟุต พร้อมโมเดล 3 มิติ">
+<title>คำนวณตู้คอนเทนเนอร์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#f4f2ec; --surface:#ffffff; --surface-2:#ebe7dc;
+    --ink:#1e2328; --ink-soft:#4a5157; --muted:#767d84;
+    --line:#dcd6c8; --line-soft:#e7e2d5;
+    --accent:#c6501e; --accent-ink:#ffffff;
+    --accent-2:#2b5d63; --warn:#b3781c;
+    --stage:#e2ddd0;
+    --shadow:0 1px 2px rgba(30,35,40,.06), 0 6px 20px -8px rgba(30,35,40,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      color-scheme:dark;
+      --bg:#14181b; --surface:#1b2124; --surface-2:#20272a;
+      --ink:#eae6db; --ink-soft:#c3beb2; --muted:#8d9298;
+      --line:#323a3e; --line-soft:#2a3134;
+      --accent:#e2793f; --accent-ink:#1a1300;
+      --accent-2:#5fa8ae; --warn:#d9a24b;
+      --stage:#171d20;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -12px rgba(0,0,0,.6);
+    }
+  }
+
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans Thai','IBM Plex Sans',system-ui,sans-serif; font-size:14px; line-height:1.55;
+  }
+  .wrap{
+    max-width:1280px; margin:0 auto; padding:28px 20px 64px;
+    display:flex; flex-direction:column; gap:34px;
+  }
+  h1,h2,h3{ text-wrap:balance; margin:0; }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); font-weight:600;
+  }
+  header.top{ display:flex; flex-direction:column; gap:7px; border-bottom:1px solid var(--line); padding-bottom:22px; }
+  header.top h1{ font-family:'Oswald',sans-serif; font-weight:700; font-size:clamp(28px,5vw,42px); line-height:1.15; }
+  header.top p{ margin:0; color:var(--ink-soft); max-width:64ch; font-size:15px; }
+
+  .section-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:14px; border-bottom:1px solid var(--line-soft); padding-bottom:8px; }
+  .section-head h2{ font-family:'Oswald',sans-serif; font-size:20px; font-weight:600; letter-spacing:.02em; }
+  .section-head .meta{ font-size:12px; color:var(--muted); margin-left:auto; }
+
+  .specs-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(268px,1fr)); gap:16px; }
+  .plate{ background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow); padding:18px 20px 20px; position:relative; }
+  .plate::before{
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.16;
+    background:
+      radial-gradient(circle at 10px 10px, var(--ink) 0 1.4px, transparent 1.6px),
+      radial-gradient(circle at calc(100% - 10px) 10px, var(--ink) 0 1.4px, transparent 1.6px),
+      radial-gradient(circle at 10px calc(100% - 10px), var(--ink) 0 1.4px, transparent 1.6px),
+      radial-gradient(circle at calc(100% - 10px) calc(100% - 10px), var(--ink) 0 1.4px, transparent 1.6px);
+  }
+  .plate .code{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--muted); letter-spacing:.08em; }
+  .plate h3{ font-family:'Oswald',sans-serif; font-size:22px; font-weight:600; margin-top:2px; }
+  .plate .sub{ color:var(--accent-2); font-size:12.5px; font-weight:600; }
+  .spec-rows{ margin-top:13px; display:flex; flex-direction:column; gap:6px; font-size:12.5px; }
+  .spec-rows .row{ display:flex; justify-content:space-between; gap:10px; border-bottom:1px dashed var(--line); padding-bottom:5px; }
+  .spec-rows .row span:first-child{ color:var(--muted); }
+  .spec-rows .row span:last-child{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
+  .cap-badge{ margin-top:13px; display:inline-flex; align-items:baseline; gap:6px; background:var(--surface-2); border-radius:7px; padding:7px 12px; }
+  .cap-badge b{ font-family:'IBM Plex Mono',monospace; font-size:19px; color:var(--accent); }
+  .cap-badge span{ font-size:11.5px; color:var(--muted); }
+
+  .calc{ display:grid; grid-template-columns:minmax(240px,290px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:820px){ .calc{ grid-template-columns:1fr; } }
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:20px; }
+  .card > h2{ font-family:'Oswald',sans-serif; font-size:18px; font-weight:600; margin-bottom:16px; letter-spacing:.02em; }
+
+  .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:15px; }
+  .field label{ font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+  .field.options{ gap:9px; margin-bottom:0; }
+  .hint{ font-size:11.5px; color:var(--muted); }
+  .trio{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+  .trio .cap{ font-size:10.5px; color:var(--muted); text-align:center; font-family:'IBM Plex Mono',monospace; }
+  input[type="number"], select{
+    width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink);
+    border-radius:7px; padding:9px 10px; font-family:'IBM Plex Mono',monospace; font-size:14px; font-variant-numeric:tabular-nums;
+  }
+  select{ font-family:'IBM Plex Sans Thai',sans-serif; font-size:13.5px; }
+  input:focus-visible, select:focus-visible, button:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  .checkbox{ display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--ink-soft); }
+  .checkbox input{ width:16px; height:16px; accent-color:var(--accent); margin-top:2px; flex:none; }
+
+  .results{ display:flex; flex-direction:column; gap:22px; }
+  .hero-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:12px; }
+  .stat{ background:var(--surface-2); border-radius:10px; padding:13px 15px; }
+  .stat .label{ font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; }
+  .stat .value{ font-family:'IBM Plex Mono',monospace; font-size:25px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.25; margin-top:2px; }
+  .stat .value small{ font-size:13px; color:var(--muted); font-weight:500; }
+  .stat.primary{ background:var(--accent); }
+  .stat.primary .label{ color:color-mix(in srgb, var(--accent-ink) 82%, transparent); }
+  .stat.primary .value{ color:var(--accent-ink); }
+  .stat.primary .value small{ color:color-mix(in srgb, var(--accent-ink) 70%, transparent); }
+
+  .howto{ background:var(--surface-2); border-left:3px solid var(--accent-2); border-radius:0 9px 9px 0; padding:15px 17px; }
+  .howto h3{ font-size:13px; font-weight:700; color:var(--accent-2); margin-bottom:9px; }
+  .howto ol{ margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px; }
+  .howto li{ font-size:13.5px; color:var(--ink-soft); }
+  .howto b{ color:var(--ink); font-family:'IBM Plex Mono',monospace; font-weight:600; }
+  .howto .extra{ margin-top:10px; font-size:12.5px; color:var(--muted); border-top:1px dashed var(--line); padding-top:9px; }
+
+  /* ---- 3D viewer ---- */
+  .viewer{ position:relative; background:var(--stage); border-radius:10px; overflow:hidden; border:1px solid var(--line); }
+  .viewer canvas{ display:block; width:100%; height:auto; touch-action:none; cursor:grab; }
+  .viewer canvas:active{ cursor:grabbing; }
+  .viewer .hud{
+    position:absolute; left:12px; top:12px; pointer-events:none;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-soft);
+    background:color-mix(in srgb, var(--surface) 82%, transparent);
+    border:1px solid var(--line); border-radius:7px; padding:6px 10px; line-height:1.6;
+  }
+  .viewer .hud:empty{ display:none; }
+  .viewer .drag-tip{
+    position:absolute; right:12px; bottom:10px; pointer-events:none;
+    font-size:11px; color:var(--muted);
+  }
+  .viewer-fallback{ margin:0; padding:28px 20px; text-align:center; color:var(--muted); font-size:13px; }
+  .view-controls{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  .view-controls button{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:12.5px; font-weight:600;
+    border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft);
+    border-radius:999px; padding:6px 14px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .view-controls button:hover{ border-color:var(--accent); color:var(--ink); }
+  .view-controls button[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .slider-row{ display:flex; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+  .slider-row input[type="range"]{ flex:1; min-width:140px; accent-color:var(--accent); }
+  .slider-row .readout{ font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--accent); font-weight:600; }
+
+  .mode-row{ display:flex; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+  .mode-label{ font-size:12.5px; color:var(--ink-soft); font-weight:600; }
+  .mode-switch{ display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+  .mode-switch button{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:12.5px; font-weight:600;
+    border:none; background:var(--surface-2); color:var(--ink-soft);
+    padding:6px 14px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  .mode-switch button + button{ border-left:1px solid var(--line); }
+  .mode-switch button:hover{ color:var(--ink); }
+  .mode-switch button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+  .step-btn{
+    border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft);
+    border-radius:7px; width:32px; height:30px; cursor:pointer; font-size:11px; line-height:1;
+    display:inline-flex; align-items:center; justify-content:center; flex:none;
+  }
+  .step-btn:hover{ border-color:var(--accent); color:var(--ink); }
+  .step-btn[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .step-btn:disabled{ opacity:.4; cursor:default; }
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--muted); margin-top:12px; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ display:inline-block; width:9px; height:9px; border-radius:2px; }
+  .sw-main{ background:var(--accent); }
+  .sw-fill{ background:var(--accent-2); }
+  .sw-past{ background:color-mix(in srgb, var(--accent) 40%, var(--stage)); }
+
+  .tbl-scroll{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; min-width:440px; }
+  th, td{ text-align:right; padding:8px 10px; border-bottom:1px solid var(--line-soft); }
+  th:first-child, td:first-child{ text-align:left; }
+  thead th{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; border-bottom:1px solid var(--line); }
+  td.num{ font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-weight:600; }
+  td.accent{ color:var(--accent); }
+  td .swatch{ margin-right:7px; }
+  td .pos{ font-size:11px; color:var(--muted); margin-left:16px; }
+  td .dim{ color:var(--muted); font-weight:400; }
+  td.more{ color:var(--muted); font-size:12px; }
+  tr.selected{ background:var(--surface-2); }
+  .sel-tag{ color:var(--accent); font-size:11px; }
+  tr.total td{ border-bottom:none; border-top:2px solid var(--line); color:var(--accent); }
+
+  .limiter-host{ margin-top:16px; }
+  .util{ margin-top:14px; }
+  .util-row{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+  .util-row:last-child{ margin-bottom:0; }
+  .util-head{ display:flex; justify-content:space-between; font-size:12px; }
+  .util-head .k{ color:var(--ink-soft); }
+  .util-head .v{ font-family:'IBM Plex Mono',monospace; font-weight:600; font-variant-numeric:tabular-nums; }
+  .util-bar{ height:9px; border-radius:999px; background:var(--surface-2); overflow:hidden; }
+  .util-bar > div{ width:0; height:100%; border-radius:999px; transition:width .3s ease; }
+  .bar-vol{ background:var(--accent-2); }
+  .bar-wt{ background:var(--accent); }
+
+  .limiter{ display:inline-flex; align-items:center; gap:7px; font-size:12.5px; padding:6px 12px; border-radius:999px; background:var(--surface-2); color:var(--ink-soft); }
+  .limiter .dot{ width:7px; height:7px; border-radius:50%; background:var(--accent-2); flex:none; }
+  .limiter.weight .dot{ background:var(--warn); }
+  .limiter.error{ color:var(--accent); }
+  .limiter.error .dot{ background:var(--accent); }
+
+  .note{ font-size:12px; color:var(--muted); line-height:1.6; }
+  .specs-note{ margin:14px 0 0; }
+
+  .mode-toggle{
+    align-self:flex-start; margin-top:6px;
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:12.5px; font-weight:600;
+    border:1px solid var(--accent); background:transparent; color:var(--accent);
+    border-radius:999px; padding:7px 16px; cursor:pointer;
+  }
+
+  /* ---------- โหมดหน้างาน (mobile) ---------- */
+  /* Specific enough to beat the display value each site component sets for itself. */
+  body:not(.site-mode) .site-only{ display:none; }
+  body.site-mode .office-only{ display:none !important; }
+  body.site-mode .wrap{ padding:10px 16px calc(92px + env(safe-area-inset-bottom)); gap:12px; }
+  body.site-mode header.top{ display:none; }
+  body.site-mode .calc{ grid-template-columns:1fr; gap:12px; }
+  body.site-mode .results{ gap:12px; }
+  /* The model is the page on a phone: no card chrome around it, just the stage. */
+  body.site-mode .viewer-card{ padding:0; background:none; border:none; box-shadow:none; }
+  body.site-mode .viewer{ border-radius:14px; }
+  body.site-mode .viewer .hud, body.site-mode .viewer .drag-tip{ display:none; }
+  @media (orientation:landscape) and (min-width:560px){
+    body.site-mode .results{ display:grid; grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr); align-items:start; }
+  }
+
+  .site-bar{ display:flex; align-items:center; gap:8px; }
+  .site-bar .ctx{ flex:1; min-width:0; display:flex; flex-direction:column; line-height:1.3; }
+  .site-bar .ctx .t{ font-family:'Oswald',sans-serif; font-size:17px; font-weight:600; color:var(--ink); }
+  .site-bar .ctx .s{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .site-btn{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:14px; font-weight:600;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink);
+    border-radius:10px; min-height:44px; padding:0 13px; cursor:pointer; flex:none;
+  }
+  .site-btn:active, .v-seg button:active, .site-nav button:active{ transform:scale(.97); }
+
+  /* Controls floating on the 3D stage — thumb-sized, readable over the model. */
+  .viewer-ui{ position:absolute; inset:0; pointer-events:none; }
+  .viewer-ui > *{ pointer-events:auto; }
+  .v-legend{
+    position:absolute; left:10px; top:10px; pointer-events:none;
+    display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--ink-soft);
+    background:color-mix(in srgb, var(--surface) 85%, transparent); border-radius:9px; padding:6px 10px;
+  }
+  .v-legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .v-seg{
+    display:inline-flex; border:1px solid var(--line); border-radius:11px; overflow:hidden;
+    background:color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter:blur(6px);
+  }
+  .v-seg button{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:13.5px; font-weight:600;
+    border:none; background:transparent; color:var(--ink-soft); min-height:42px; padding:0 13px; cursor:pointer;
+  }
+  .v-seg button + button{ border-left:1px solid var(--line); }
+  .v-seg button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+  .v-focus{ position:absolute; right:10px; top:10px; }
+  .v-views{ position:absolute; left:50%; bottom:10px; transform:translateX(-50%); white-space:nowrap; }
+
+  .site-panel{ background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow); padding:14px 16px 12px; touch-action:pan-y; }
+  .sp-top{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .site-rowno{ font-size:13px; color:var(--muted); font-weight:600; letter-spacing:.02em; }
+  .sp-count{ font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:600; color:var(--accent-2); white-space:nowrap; }
+  .site-big{
+    font-family:'Oswald',sans-serif; font-weight:600; font-size:25px; line-height:1.2;
+    color:var(--ink); margin-top:2px;
+  }
+  .site-big b{ color:var(--accent); font-size:38px; font-family:'IBM Plex Mono',monospace; font-weight:600; }
+  .site-sub{ font-size:15px; color:var(--ink-soft); margin-top:4px; font-weight:600; }
+  .orient{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px; }
+  .orient div{ background:var(--surface-2); border-radius:9px; padding:7px 6px; text-align:center; }
+  .orient span{ display:block; font-size:11.5px; color:var(--muted); white-space:nowrap; }
+  .orient b{ font-family:'IBM Plex Mono',monospace; font-size:19px; color:var(--ink); font-weight:600; }
+  .orient b small{ font-size:11px; color:var(--muted); font-weight:500; }
+  .site-alt{
+    margin-top:10px; background:var(--surface-2); border-left:3px solid var(--accent-2);
+    border-radius:0 7px 7px 0; padding:9px 12px; font-size:13.5px; color:var(--ink-soft);
+  }
+  .site-alt b{ font-family:'IBM Plex Mono',monospace; color:var(--ink); }
+  .site-last{ margin-top:8px; font-size:13px; color:var(--warn); font-weight:600; }
+
+  .site-prog{ margin-top:12px; }
+  .site-prog-head{ display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px; }
+  .site-prog-head .l{ color:var(--muted); }
+  .site-prog-head .r{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--ink); }
+  .site-track{ height:9px; border-radius:999px; background:var(--surface-2); overflow:hidden; }
+  .site-track > div{ height:100%; background:var(--accent); border-radius:999px; transition:width .25s ease; }
+  .site-tip{ margin-top:8px; font-size:11.5px; color:var(--muted); text-align:center; }
+
+  .site-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    display:flex; gap:10px; padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--surface) 94%, transparent);
+    border-top:1px solid var(--line);
+    backdrop-filter:blur(8px);
+  }
+  .site-nav button{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-weight:700; font-size:17px;
+    border-radius:12px; border:1px solid var(--line); cursor:pointer;
+    min-height:58px; padding:0 16px;
+  }
+  .site-nav .back{ background:var(--surface-2); color:var(--ink-soft); flex:none; width:92px; }
+  .site-nav .next{
+    background:var(--accent); color:var(--accent-ink); border-color:var(--accent); flex:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.25;
+  }
+  .site-nav .next small{ font-size:12px; font-weight:500; opacity:.85; }
+  .site-nav button:disabled{ opacity:.4; }
+
+  /* Settings slide up as a bottom sheet instead of pushing the model off screen. */
+  .sheet-backdrop{
+    position:fixed; inset:0; z-index:30; background:rgba(10,12,14,.45);
+    opacity:0; pointer-events:none; transition:opacity .2s ease;
+  }
+  body.site-mode.show-inputs .sheet-backdrop{ opacity:1; pointer-events:auto; }
+  body.site-mode.show-inputs{ overflow:hidden; }
+  body.site-mode .card.inputs{
+    position:fixed; left:0; right:0; bottom:0; z-index:40; margin:0 auto; max-width:560px;
+    max-height:86vh; max-height:86dvh; overflow-y:auto; overscroll-behavior:contain;
+    border-radius:18px 18px 0 0; padding:0 18px calc(18px + env(safe-area-inset-bottom));
+    transform:translateY(105%); visibility:hidden;
+    transition:transform .26s ease, visibility 0s linear .26s;
+  }
+  body.site-mode.show-inputs .card.inputs{ transform:none; visibility:visible; transition:transform .26s ease; }
+  .sheet-head{
+    position:sticky; top:0; z-index:1; background:var(--surface);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:18px 0 12px; margin-bottom:12px; border-bottom:1px solid var(--line-soft);
+  }
+  .sheet-head::before{
+    content:""; position:absolute; top:7px; left:50%; width:40px; height:4px; margin-left:-20px;
+    border-radius:4px; background:var(--line);
+  }
+  .sheet-head h2{ font-family:'Oswald',sans-serif; font-size:19px; font-weight:600; }
+  .sheet-head button{
+    font-family:'IBM Plex Sans Thai',sans-serif; font-size:15px; font-weight:700;
+    border:none; background:var(--accent); color:var(--accent-ink);
+    border-radius:10px; min-height:44px; padding:0 20px; cursor:pointer;
+  }
+  body.site-mode .card.inputs input[type="number"], body.site-mode .card.inputs select{ font-size:16px; min-height:48px; }
+  body.site-mode .card.inputs .field label{ font-size:14px; }
+  body.site-mode .card.inputs .trio .cap{ font-size:12px; }
+  body.site-mode .card.inputs .checkbox{ font-size:14px; padding:6px 0; }
+  body.site-mode .card.inputs .checkbox input{ width:22px; height:22px; }
+
+  /* Touch screens: every control at least ~40px tall, inputs at 16px so iOS doesn't zoom on focus.
+     Kept last so it overrides the base rules above. */
+  @media (pointer:coarse){
+    input[type="number"], select{ font-size:16px; min-height:46px; }
+    .view-controls button, .mode-switch button{ min-height:40px; padding:8px 16px; font-size:13.5px; }
+    .step-btn{ width:44px; height:40px; font-size:13px; }
+    .mode-toggle{ min-height:42px; padding:9px 18px; font-size:14px; }
+    .checkbox input{ width:20px; height:20px; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span class="eyebrow">ISO 668 / ISO 6346 · Freight Container Loading</span>
+    <h1>คำนวณตู้คอนเทนเนอร์ 20 / 40 ฟุต</h1>
+    <p>ขนาดมาตรฐานตู้คอนเทนเนอร์ พร้อมโมเดล 3 มิติแสดงการจัดเรียงสินค้า — บอกชัดว่าต้องวางกี่กล่องต่อแถว กี่แถว และซ้อนกี่ชั้น</p>
+    <button type="button" class="mode-toggle" id="btnSiteMode" aria-pressed="false">โหมดหน้างาน</button>
+  </header>
+
+  <div class="site-bar site-only">
+    <div class="ctx"><span class="t" id="siteTitle">โหมดหน้างาน</span><span class="s" id="siteContext">—</span></div>
+    <button type="button" class="site-btn" id="btnSiteSettings" aria-expanded="false">⚙ ตั้งค่า</button>
+    <button type="button" class="site-btn" id="btnSiteExit">โหมดเต็ม</button>
+  </div>
+
+  <section class="office-only">
+    <div class="section-head">
+      <h2>ขนาดมาตรฐาน</h2>
+      <span class="meta">ตู้แห้ง (Dry / General Purpose)</span>
+    </div>
+    <div class="specs-grid" id="specsGrid"></div>
+    <p class="note specs-note">
+      <b>ทำไมตัวเลขหลายค่าซ้ำกัน</b> — ตู้ทั้งสามแบบมีหน้าตัดเท่ากันตามมาตรฐาน ISO 668 คือกว้างภายนอก 2,438 มม. และกว้างภายใน 2,352 มม. เท่ากันหมด
+      ส่วน 20DC กับ 40DC สูงเท่ากัน (2,591 มม. ภายนอก / 2,393 มม. ภายใน) และช่องประตูเท่ากัน (2,340 × 2,280 มม.) ต่างกันแค่ความยาว —
+      ค่าที่ซ้ำจึงถูกต้องตามจริง ไม่ใช่การคัดลอกผิด ส่วน 40HC สูงกว่า 305 มม. (1 ฟุต) ซึ่งเป็นที่มาของคำว่า High Cube
+      <br><br>
+      <b>ค่าที่ควรตรวจกับของจริง</b> — ขนาดภายนอกและรหัส ISO เป็นค่าตายตัวตามมาตรฐาน แต่ <b>ขนาดภายใน น้ำหนักตู้เปล่า และน้ำหนักบรรทุก ต่างกันได้ตามผู้ผลิตและอายุตู้</b>
+      (ตู้เปล่า 20 ฟุต พบตั้งแต่ 2,200–2,400 กก.) ค่าที่ใช้จริงดูได้จากป้าย CSC ที่ประตูตู้ใบนั้น
+      นอกจากนี้ตู้บางใบมีพิกัดน้ำหนักรวมสูงกว่า 30,480 กก. และในทางปฏิบัติ <b>ข้อจำกัดน้ำหนักบนถนนมักบังคับก่อนพิกัดตู้</b> จึงควรเช็คกับสายเรือและผู้ขนส่งก่อนบุ๊กกิ้ง
+    </p>
+  </section>
+
+  <section>
+    <div class="section-head office-only">
+      <h2>คำนวณการจัดเรียง</h2>
+      <span class="meta" id="calcMeta"></span>
+    </div>
+
+    <div class="calc">
+      <div class="card inputs" id="inputsCard">
+        <div class="sheet-head site-only">
+          <h2>ตั้งค่ากล่องและตู้</h2>
+          <button type="button" id="btnSheetDone">เสร็จ</button>
+        </div>
+        <h2 class="office-only">ข้อมูลสินค้า</h2>
+
+        <div class="field">
+          <label for="containerSelect">ขนาดตู้</label>
+          <select id="containerSelect"></select>
+        </div>
+
+        <div class="field">
+          <label for="boxW">ขนาดกล่องต่อ 1 ใบ (ซม.)</label>
+          <div class="trio">
+            <input type="number" id="boxW" value="38" min="1" step="0.5" inputmode="decimal" aria-label="กว้าง (ซม.)">
+            <input type="number" id="boxL" value="61" min="1" step="0.5" inputmode="decimal" aria-label="ยาว (ซม.)">
+            <input type="number" id="boxH" value="38" min="1" step="0.5" inputmode="decimal" aria-label="สูง (ซม.)">
+          </div>
+          <div class="trio" aria-hidden="true"><span class="cap">กว้าง</span><span class="cap">ยาว</span><span class="cap">สูง</span></div>
+        </div>
+
+        <div class="field">
+          <label for="boxWeight">น้ำหนักต่อกล่อง (กก.)</label>
+          <input type="number" id="boxWeight" value="20" min="0.1" step="0.5" inputmode="decimal">
+        </div>
+
+        <div class="field">
+          <label for="totalQty">จำนวนที่ต้องการส่ง (กล่อง)</label>
+          <input type="number" id="totalQty" value="1000" min="1" step="1" inputmode="numeric">
+        </div>
+
+        <div class="field">
+          <label for="maxStack">ซ้อนได้สูงสุด (ชั้น)</label>
+          <input type="number" id="maxStack" value="0" min="0" step="1" inputmode="numeric">
+          <span class="hint">ใส่ 0 = ซ้อนได้เต็มความสูงตู้</span>
+        </div>
+
+        <div class="field options">
+          <label class="checkbox"><input type="checkbox" id="allowRotate" checked> <span>หมุนกล่องได้ทุกด้าน — เลือกแนววางที่ใส่ได้มากที่สุด</span></label>
+          <label class="checkbox"><input type="checkbox" id="allowMixed" checked> <span>จัดเรียงแบบผสมเพื่อบรรจุให้ได้มากที่สุด — สลับแนววางในชั้นเดียวกัน ใช้ความสูงชั้นต่างกัน และเติมช่องว่างทุกมุม</span></label>
+        </div>
+      </div>
+
+      <div class="results">
+
+        <div class="hero-stats office-only">
+          <div class="stat primary"><div class="label">กล่องต่อแถว</div><div class="value" id="sPerRow">—</div></div>
+          <div class="stat"><div class="label">จำนวนแถว</div><div class="value" id="sRows">—</div></div>
+          <div class="stat"><div class="label">จำนวนชั้น</div><div class="value" id="sLayers">—</div></div>
+          <div class="stat"><div class="label">รวมต่อ 1 ตู้</div><div class="value" id="sTotal">—<small> กล่อง</small></div></div>
+          <div class="stat"><div class="label">ต้องใช้กี่ตู้</div><div class="value" id="sNeed">—</div></div>
+        </div>
+
+        <div class="card office-only">
+          <div class="howto">
+            <h3>วิธีจัดเรียงสินค้า</h3>
+            <ol id="howtoList"></ol>
+            <div class="extra" id="howtoExtra"></div>
+          </div>
+        </div>
+
+        <div class="card viewer-card">
+          <h2 class="office-only">โมเดล 3 มิติ</h2>
+          <div class="view-controls office-only">
+            <button type="button" data-view="iso" aria-pressed="true">มุมมอง 3D</button>
+            <button type="button" data-view="top" aria-pressed="false">ด้านบน</button>
+            <button type="button" data-view="side" aria-pressed="false">ด้านข้าง</button>
+            <button type="button" data-view="back" aria-pressed="false">ด้านท้ายตู้</button>
+            <button type="button" id="btnFit">พอดีจอ</button>
+            <button type="button" id="btnShell" aria-pressed="true">แสดงผนังตู้</button>
+            <button type="button" id="btnSpin" aria-pressed="false">หมุนอัตโนมัติ</button>
+          </div>
+          <div class="viewer" id="viewer">
+            <div class="hud" id="hud"></div>
+            <div class="drag-tip">ลากเพื่อหมุน · สกรอลล์หรือ 2 นิ้วเพื่อซูม · ดับเบิลคลิกเพื่อพอดีจอ</div>
+            <div class="viewer-ui site-only">
+              <div class="v-legend" aria-hidden="true">
+                <span><span class="swatch sw-main"></span>วางตอนนี้</span>
+                <span><span class="swatch sw-past"></span>วางแล้ว</span>
+              </div>
+              <div class="v-seg v-focus" role="group" aria-label="ระยะมอง">
+                <button type="button" data-focus="row" aria-pressed="true">แถวนี้</button>
+                <button type="button" data-focus="all" aria-pressed="false">ทั้งตู้</button>
+              </div>
+              <div class="v-seg v-views" role="group" aria-label="มุมมอง">
+                <button type="button" data-sview="back" aria-pressed="false">จากประตู</button>
+                <button type="button" data-sview="iso" aria-pressed="true">มุมเฉียง</button>
+                <button type="button" data-sview="top" aria-pressed="false">ด้านบน</button>
+              </div>
+            </div>
+          </div>
+          <div class="mode-row office-only">
+            <span class="mode-label">โหมดดู</span>
+            <div class="mode-switch" role="group" aria-label="โหมดดู">
+              <button type="button" data-mode="all" aria-pressed="true">ทั้งตู้</button>
+              <button type="button" data-mode="layer" aria-pressed="false">ทีละชั้น</button>
+              <button type="button" data-mode="row" aria-pressed="false">ทีละแถว</button>
+            </div>
+            <label class="checkbox" id="isolateWrap" hidden><input type="checkbox" id="isolateOnly"> <span>แสดงเฉพาะแถวนี้</span></label>
+          </div>
+          <div class="slider-row office-only" id="stepRow" hidden>
+            <button type="button" class="step-btn" id="stepPrev" aria-label="ย้อนกลับ">&#9664;</button>
+            <button type="button" class="step-btn" id="stepPlay" aria-label="เล่นลำดับการโหลด" aria-pressed="false">&#9658;</button>
+            <button type="button" class="step-btn" id="stepNext" aria-label="ถัดไป">&#9654;</button>
+            <input type="range" id="stepSlider" min="1" max="1" value="1" aria-label="เลือกแถว/ชั้นที่จะแสดง">
+            <span class="readout" id="stepReadout">—</span>
+          </div>
+          <div class="legend office-only">
+            <span><span class="swatch sw-main"></span> บล็อกหลัก</span>
+            <span><span class="swatch sw-fill"></span> กลุ่มที่วางสลับแนว</span>
+            <span>ด้านขวาของโมเดล = ประตูตู้</span>
+          </div>
+        </div>
+
+        <div class="site-panel site-only" id="sitePanel" aria-live="polite"></div>
+
+        <div class="card office-only">
+          <h2>รายละเอียดการจัดเรียง</h2>
+          <div class="tbl-scroll">
+            <table>
+              <thead>
+                <tr><th>ตำแหน่ง</th><th>แนววาง ก×ย×ส (ซม.)</th><th>กล่อง/แถว</th><th>แถว</th><th>ชั้น</th><th>รวม</th></tr>
+              </thead>
+              <tbody id="breakdownBody"></tbody>
+            </table>
+          </div>
+          <div class="limiter-host" id="limiterHost"></div>
+          <div class="util">
+            <div class="util-row">
+              <div class="util-head"><span class="k" id="volLabel">ใช้ปริมาตรตู้</span><span class="v" id="volText">—</span></div>
+              <div class="util-bar"><div class="bar-vol" id="volFill"></div></div>
+            </div>
+            <div class="util-row">
+              <div class="util-head"><span class="k" id="wtLabel">ใช้น้ำหนักบรรทุก</span><span class="v" id="wtText">—</span></div>
+              <div class="util-bar"><div class="bar-wt" id="wtFill"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card office-only">
+          <h2>เปรียบเทียบทุกขนาดตู้</h2>
+          <div class="tbl-scroll">
+            <table>
+              <thead>
+                <tr><th>ตู้</th><th>กล่อง/แถว</th><th>แถว × ชั้น</th><th>รวม/ตู้</th><th>ใช้พื้นที่ (เต็มตู้)</th><th>ต้องใช้</th><th>ตู้สุดท้าย</th></tr>
+              </thead>
+              <tbody id="compareBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <p class="note office-only" id="footNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="sheet-backdrop site-only" id="sheetBackdrop"></div>
+
+  <div class="site-nav site-only" id="siteNav">
+    <button type="button" class="back" id="siteBack">← ย้อน</button>
+    <button type="button" class="next" id="siteNext">แถวถัดไป →</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+const CONTAINERS = {
+  d20: { name:"20' Dry", sub:"20DC · General Purpose", isoCode:"ISO 22G1",
+    extL:6058, extW:2438, extH:2591, intL:5898, intW:2352, intH:2393,
+    doorW:2340, doorH:2280, tare:2300, maxGross:30480 },
+  d40: { name:"40' Dry", sub:"40DC · General Purpose", isoCode:"ISO 42G1",
+    extL:12192, extW:2438, extH:2591, intL:12032, intW:2352, intH:2393,
+    doorW:2340, doorH:2280, tare:3750, maxGross:30480 },
+  d40hc:{ name:"40' High Cube", sub:"40HC · Extra Height", isoCode:"ISO 45G1",
+    extL:12192, extW:2438, extH:2896, intL:12032, intW:2352, intH:2698,
+    doorW:2340, doorH:2585, tare:3900, maxGross:30480 }
+};
+// Smallest box side accepted (cm) — matches the inputs' min. Tinier sides blow up the cut-position search.
+const MIN_BOX = 1;
+
+const $ = id => document.getElementById(id);
+const fmt = (n,d=0) => Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const trim = n => Number(n.toFixed(1)).toString();
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const setPressed = (selector, isOn) =>
+  document.querySelectorAll(selector).forEach(b => b.setAttribute('aria-pressed', String(isOn(b))));
+// Volume and payload are derived, never stored twice: internal dimensions and the CSC
+// gross/tare rating are the only source of truth.
+const containerCBM = c => (c.intL/10) * (c.intW/10) * (c.intH/10) / 1e6;
+const payloadOf = c => c.maxGross - c.tare;
+
+/* ---------------- packing ----------------
+   Three strategies compete for every region and the densest one wins:
+   1. optimal guillotine floor pattern per layer (mixes box orientations in one layer)
+   2. a height knapsack that stacks layers of different heights
+   3. recursive block decomposition that fills the leftover strips and headroom
+------------------------------------------------------------------ */
+const EPS = 1e-6;
+const s2d = new Map();
+let packDeadline = Infinity;   // whole-run budget so pathological box sizes can't hang the page
+
+function orientationsOf(w,l,h,allowRotate){
+  const all = allowRotate ? [[w,l,h],[w,h,l],[l,w,h],[l,h,w],[h,w,l],[h,l,w]] : [[w,l,h]];
+  const seen = new Set(); const out = [];
+  for (const o of all){ const k = o.join('|'); if(!seen.has(k)){ seen.add(k); out.push(o); } }
+  return out;
+}
+const makeBox = (w,l,h,rot) => ({ w,l,h, rot, orients: orientationsOf(w,l,h,rot), min: Math.min(w,l,h) });
+
+// Candidate cut positions: every reachable sum of box side lengths.
+function rasterSet(limit, a, b, cap){
+  const s = new Set([0]);
+  for (let i=0; i*a <= limit+EPS; i++)
+    for (let j=0; i*a + j*b <= limit+EPS; j++)
+      s.add(Math.round((i*a + j*b)*1000)/1000);
+  let arr = [...s].sort((x,y)=>x-y);
+  if (arr.length > cap){
+    const step = Math.ceil(arr.length/cap);
+    const keep = arr.filter((_,i) => i % step === 0);
+    if (keep[keep.length-1] !== arr[arr.length-1]) keep.push(arr[arr.length-1]);
+    arr = keep;
+  }
+  return arr;
+}
+
+// Very small boxes generate a huge number of candidate cuts; trim the grid so the
+// search stays interactive instead of freezing the page.
+function rasterPair(W, L, a, b){
+  let RW = rasterSet(W, a, b, 180), RL = rasterSet(L, a, b, 180);
+  const BUDGET = 14000;
+  if (RW.length * RL.length > BUDGET){
+    const scale = Math.sqrt(BUDGET / (RW.length * RL.length));
+    RW = rasterSet(W, a, b, Math.max(12, Math.floor(RW.length * scale)));
+    RL = rasterSet(L, a, b, Math.max(12, Math.floor(RL.length * scale)));
+  }
+  return [RW, RL];
+}
+
+// Densest guillotine arrangement of a×b footprints (rotatable) on a W×L floor.
+function solve2D(W, L, a, b, rot){
+  const key = `${W.toFixed(2)}|${L.toFixed(2)}|${a}|${b}|${rot?1:0}`;
+  const cached = s2d.get(key); if (cached) return cached;
+  const minSide = Math.min(a,b);
+  const empty = { count:0, blocks:[] };
+  if (W < minSide-EPS || L < minSide-EPS){ s2d.set(key, empty); return empty; }
+
+  const [RW, RL] = rasterPair(W, L, a, b);
+  const normW = v => { let r=0; for(const x of RW){ if(x<=v+EPS) r=x; else break; } return r; };
+  const normL = v => { let r=0; for(const y of RL){ if(y<=v+EPS) r=y; else break; } return r; };
+  const grids = rot ? [[a,b],[b,a]] : [[a,b]];
+  const memo = new Map();
+  const deadline = Math.min(packDeadline, Date.now() + 150);
+
+  function f(w,l){
+    if (w < minSide-EPS || l < minSide-EPS) return { n:0, t:'none' };
+    const k = w+'|'+l;
+    const hit = memo.get(k); if (hit) return hit;
+    let best = { n:0, t:'none' };
+    for (const [bw,bl] of grids){
+      const nx = Math.floor(w/bw + EPS), ny = Math.floor(l/bl + EPS);
+      if (nx*ny > best.n) best = { n:nx*ny, t:'grid', bw, bl, nx, ny };
+    }
+    if (Date.now() > deadline){ memo.set(k, best); return best; }
+    for (const x of RW){
+      if (x <= EPS) continue;
+      if (x > w/2 + EPS) break;
+      const restW = normW(w - x);
+      const A = f(x, l), B = f(restW, l);
+      if (A.n + B.n > best.n) best = { n:A.n+B.n, t:'v', at:x, rest:restW };
+    }
+    for (const y of RL){
+      if (y <= EPS) continue;
+      if (y > l/2 + EPS) break;
+      const restL = normL(l - y);
+      const A = f(w, y), B = f(w, restL);
+      if (A.n + B.n > best.n) best = { n:A.n+B.n, t:'h', at:y, rest:restL };
+    }
+    memo.set(k, best);
+    return best;
+  }
+
+  const w0 = normW(W), l0 = normL(L);
+  const top = f(w0, l0);
+  const blocks = [];
+  (function emit(w,l,ox,oy){
+    const d = f(w,l);
+    if (!d || d.n === 0) return;
+    if (d.t === 'grid'){ blocks.push({ x:ox, y:oy, nx:d.nx, ny:d.ny, bw:d.bw, bl:d.bl }); return; }
+    if (d.t === 'v'){ emit(d.at, l, ox, oy); emit(d.rest, l, ox + d.at, oy); }
+    else { emit(w, d.at, ox, oy); emit(w, d.rest, ox, oy + d.at); }
+  })(w0, l0, 0, 0);
+
+  const res = { count: top.n, blocks };
+  s2d.set(key, res);
+  return res;
+}
+
+// Stack full-floor layers, each free to use its own height and pattern.
+function layerSolve(W, L, H, box, opt){
+  const dims = [box.w, box.l, box.h];
+  const idxs = box.rot ? [0,1,2] : [2];
+  const types = []; const seen = new Set();
+  for (const i of idxs){
+    const hh = dims[i];
+    if (hh > H + EPS) continue;
+    const rest = dims.filter((_,j) => j !== i);
+    const k = `${hh}|${Math.min(rest[0],rest[1])}x${Math.max(rest[0],rest[1])}`;
+    if (seen.has(k)) continue; seen.add(k);
+    const r = solve2D(W, L, rest[0], rest[1], box.rot);
+    if (r.count > 0) types.push({ h:hh, per:r.count, blocks:r.blocks });
+  }
+  if (!types.length) return { count:0, parts:[] };
+
+  const U = v => Math.round(v*10);
+  const HU = U(H);
+  const hardMax = Math.floor(H / box.min + EPS);
+  const maxS = opt.maxStack > 0 ? Math.min(opt.maxStack, hardMax) : 0;
+  const pick = [];
+
+  if (maxS === 0){
+    const dp = new Array(HU+1).fill(0), from = new Array(HU+1).fill(-1);
+    for (let z=1; z<=HU; z++){
+      dp[z] = dp[z-1]; from[z] = -1;
+      for (let t=0; t<types.length; t++){
+        const hu = U(types[t].h);
+        if (hu <= z && dp[z-hu] + types[t].per > dp[z]){ dp[z] = dp[z-hu] + types[t].per; from[z] = t; }
+      }
+    }
+    let z = HU;
+    while (z > 0){
+      if (from[z] === -1){ z--; continue; }
+      const t = from[z]; pick.push(t); z -= U(types[t].h);
+    }
+  } else {
+    const dp = [], from = [];
+    for (let s=0; s<=maxS; s++){ dp.push(new Array(HU+1).fill(-1)); from.push(new Array(HU+1).fill(-1)); }
+    dp[0].fill(0);
+    for (let s=1; s<=maxS; s++){
+      for (let z=0; z<=HU; z++){
+        dp[s][z] = dp[s-1][z]; from[s][z] = -2;
+        for (let t=0; t<types.length; t++){
+          const hu = U(types[t].h);
+          if (hu <= z && dp[s-1][z-hu] >= 0 && dp[s-1][z-hu] + types[t].per > dp[s][z]){
+            dp[s][z] = dp[s-1][z-hu] + types[t].per; from[s][z] = t;
+          }
+        }
+      }
+    }
+    let bestS=0, bestZ=0, bestV=0;
+    for (let s=0; s<=maxS; s++) for (let z=0; z<=HU; z++) if (dp[s][z] > bestV){ bestV=dp[s][z]; bestS=s; bestZ=z; }
+    let s=bestS, z=bestZ;
+    while (s > 0){
+      const t = from[s][z];
+      if (t < 0){ s--; continue; }
+      pick.push(t); z -= U(types[t].h); s--;
+    }
+  }
+  if (!pick.length) return { count:0, parts:[] };
+  pick.sort((x,y) => types[y].per - types[x].per); // densest layers at the bottom
+
+  const parts = []; let z = 0, i = 0, total = 0;
+  while (i < pick.length){
+    let j = i; while (j < pick.length && pick[j] === pick[i]) j++;
+    const t = types[pick[i]], runs = j - i;
+    for (const b of t.blocks){
+      parts.push({ nx:b.nx, ny:b.ny, nz:runs, ow:b.bw, ol:b.bl, oh:t.h, x:b.x, y:b.y, z });
+      total += b.nx*b.ny*runs;
+    }
+    z += t.h * runs; i = j;
+  }
+  return { count: total, parts };
+}
+
+function packRegion(x0,y0,z0,W,L,H,box,opt,depth){
+  const empty = { count:0, parts:[] };
+  if (W < box.min-EPS || L < box.min-EPS || H < box.min-EPS) return empty;
+  let best = empty;
+
+  if (opt.mixed){
+    const ls = layerSolve(W,L,H,box,opt);
+    if (ls.count > best.count)
+      best = { count: ls.count, parts: ls.parts.map(p => ({...p, x:p.x+x0, y:p.y+y0, z:p.z+z0})) };
+  }
+
+  for (const [ow,ol,oh] of box.orients){
+    const nx = Math.floor(W/ow + EPS), ny = Math.floor(L/ol + EPS);
+    let nz = Math.floor(H/oh + EPS);
+    if (opt.maxStack > 0) nz = Math.min(nz, opt.maxStack);
+    if (nx < 1 || ny < 1 || nz < 1) continue;
+    const usedW = nx*ow, usedL = ny*ol, usedH = nz*oh;
+    let parts = [{ nx,ny,nz,ow,ol,oh, x:x0, y:y0, z:z0 }];
+    let total = nx*ny*nz;
+    if (depth < opt.maxDepth){
+      const side = packRegion(x0+usedW, y0, z0, W-usedW, L, H, box, opt, depth+1);
+      const end  = packRegion(x0, y0+usedL, z0, usedW, L-usedL, H, box, opt, depth+1);
+      const top  = opt.maxStack > 0 ? empty : packRegion(x0, y0, z0+usedH, usedW, usedL, H-usedH, box, opt, depth+1);
+      total += side.count + end.count + top.count;
+      parts = parts.concat(side.parts, end.parts, top.parts);
+    }
+    if (total > best.count) best = { count: total, parts };
+  }
+  return best;
+}
+
+function packContainer(c, box, opt){
+  const r = packRegion(0,0,0, c.intW/10, c.intL/10, c.intH/10, box, opt, 0);
+  r.parts.sort((a,b) => (b.nx*b.ny*b.nz) - (a.nx*a.ny*a.nz));
+  r.parts.forEach((p,i) => { p.isMain = i === 0; });
+  return r;
+}
+
+/* ---------------- 3D viewer ---------------- */
+const V = {
+  ready: false, renderer:null, scene:null, camera:null,
+  boxGroup:null, shellGroup:null,
+  theta: -0.72, phi: 1.02, radius: 20,
+  target: null,        // THREE.Vector3, created in initViewer so a failed CDN load can't break the calculator
+  anim: null, spin: false, showShell: true, userZoomed: false,
+  lastData: null,
+  focusRow: true,      // site mode: frame the row being loaded instead of the whole 12 m box
+  siteView: 'iso'
+};
+const VIEW_ANGLES = {
+  iso:  { th:-0.72,      ph:1.02 },
+  top:  { th:-Math.PI/2, ph:0.06 },
+  side: { th:-Math.PI/2, ph:Math.PI/2 - 0.03 },
+  back: { th: 0.02,      ph:1.25 }
+};
+const clampRadius = r => Math.max(1, Math.min(160, r));
+
+function initViewer(){
+  if (typeof THREE === 'undefined') return false;
+  const host = $('viewer');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias:true });
+  } catch (e){ return false; }
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  host.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 16/9, 0.1, 500);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5a5a5a, 0.85));
+  const key = new THREE.DirectionalLight(0xffffff, 0.75);
+  key.position.set(8, 14, 9);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3);
+  fill.position.set(-9, 5, -7);
+  scene.add(fill);
+
+  V.renderer = renderer; V.scene = scene; V.camera = camera;
+  V.target = new THREE.Vector3();
+  V.boxGroup = new THREE.Group(); scene.add(V.boxGroup);
+  V.shellGroup = new THREE.Group(); scene.add(V.shellGroup);
+  V.ready = true;
+
+  attachControls(renderer.domElement);
+  resizeViewer();
+  new ResizeObserver(resizeViewer).observe(host);
+  renderLoop();
+  return true;
+}
+
+function resizeViewer(){
+  if (!V.ready) return;
+  const host = $('viewer');
+  const w = host.clientWidth || 640;
+  const vh = window.innerHeight || 720;
+  let h;
+  if (siteMode){
+    // Phone: the model gets half the screen in portrait, nearly all of it beside the card in landscape.
+    const side = window.matchMedia('(orientation: landscape) and (min-width: 560px)').matches;
+    h = side ? Math.max(200, Math.min(640, vh - 150))
+             : Math.max(280, Math.min(620, Math.round(vh * 0.5), Math.round(w * 1.35)));
+  } else {
+    h = Math.max(320, Math.min(620, Math.round(w * 0.6)));
+  }
+  V.renderer.setSize(w, h, false);
+  V.renderer.domElement.style.height = h + 'px';
+  V.camera.aspect = w / h;
+  V.camera.updateProjectionMatrix();
+  if (!V.userZoomed){
+    if (V.anim) V.anim.r1 = fitDistance(V.anim.th1, V.anim.ph1);
+    else V.radius = fitDistance(V.theta, V.phi);
+  }
+}
+
+// 0-based index of the row the step slider points at (-1 when there are no rows).
+function activeRowIndex(){
+  return Math.min(Math.max(1, +$('stepSlider').value), rowsList.length) - 1;
+}
+
+// Row i with how many of its boxes this shipment actually fills, and the running total up to it.
+function rowProgress(i){
+  const r = rowsList[i];
+  const loaded = lastResult ? lastResult.loaded : 0;
+  const before = rowsList.slice(0, i).reduce((a,b) => a + b.count, 0);
+  const inRow = Math.max(0, Math.min(r.count, loaded - before));
+  return { r, inRow, cum: before + inRow };
+}
+
+// What the camera should frame: the whole container, or in site mode a slab around the row
+// being loaded, so on a narrow phone screen that row fills the view instead of a thin sliver.
+function viewFrame(){
+  const d = V.lastData;
+  if (!d) return null;
+  let x0 = -d.lenU/2, x1 = d.lenU/2;
+  if (siteMode && V.focusRow && viewMode === 'row'){
+    const r = rowsList[activeRowIndex()];
+    if (r){
+      const S = 0.01;
+      const a = Math.max(0, r.y - 45), b = Math.min(d.lenCm, r.y + r.depth + 25);
+      x0 = a*S - d.lenU/2; x1 = b*S - d.lenU/2;
+    }
+  }
+  return { x0, x1, y0:0, y1:d.hgtU, z0:-d.widU/2, z1:d.widU/2,
+           target: new THREE.Vector3((x0 + x1)/2, d.hgtU*0.45, 0) };
+}
+
+// Smallest orbit distance that keeps all 8 corners of the frame inside the frustum.
+function fitDistance(theta, phi, f = viewFrame()){
+  if (!f) return V.radius;
+  const cam = V.camera;
+  const vHalf = cam.fov * Math.PI / 360;
+  const hHalf = Math.atan(Math.tan(vHalf) * cam.aspect);
+  const dir = new THREE.Vector3(
+    Math.sin(phi)*Math.cos(theta), Math.cos(phi), Math.sin(phi)*Math.sin(theta)
+  );
+  const ref = Math.abs(dir.y) > 0.999 ? new THREE.Vector3(0,0,1) : new THREE.Vector3(0,1,0);
+  const right = new THREE.Vector3().crossVectors(ref, dir).normalize();
+  const camUp = new THREE.Vector3().crossVectors(dir, right).normalize();
+  const p = new THREE.Vector3();
+  let r = 0;
+  for (const x of [f.x0, f.x1]) for (const y of [f.y0, f.y1]) for (const z of [f.z0, f.z1]){
+    p.set(x - f.target.x, y - f.target.y, z - f.target.z);
+    const depth = p.dot(dir);
+    r = Math.max(r, depth + Math.abs(p.dot(right))/Math.tan(hHalf),
+                    depth + Math.abs(p.dot(camUp))/Math.tan(vHalf));
+  }
+  return r * 1.08;
+}
+
+// One finger / mouse drag orbits, two fingers pinch-zoom, a double tap snaps back to fit.
+function attachControls(el){
+  const pts = new Map();
+  let pinch = 0, travel = 0, lastTap = 0;
+  const spread = () => { const [a,b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+
+  el.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    el.setPointerCapture(e.pointerId);
+    finishAnim(); setSpin(false);
+    if (pts.size === 1) travel = 0;
+    if (pts.size === 2) pinch = spread();
+  });
+  el.addEventListener('pointermove', e => {
+    const prev = pts.get(e.pointerId);
+    if (!prev) return;
+    const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (pts.size === 1){
+      travel += Math.abs(dx) + Math.abs(dy);
+      V.theta -= dx * 0.007;
+      V.phi   -= dy * 0.007;
+      V.phi = Math.max(0.05, Math.min(Math.PI - 0.05, V.phi));
+      if (!V.userZoomed) V.radius = fitDistance(V.theta, V.phi);
+    } else if (pts.size === 2){
+      travel = Infinity;
+      const d = spread();
+      if (pinch > 0 && d > 0){ V.userZoomed = true; V.radius = clampRadius(V.radius * pinch / d); }
+      pinch = d;
+    }
+  });
+  const end = e => {
+    if (!pts.delete(e.pointerId)) return;
+    if (pts.size < 2) pinch = 0;
+    if (e.type === 'pointerup' && pts.size === 0 && travel < 10){
+      const now = performance.now();
+      if (now - lastTap < 320){ fitView(); lastTap = 0; } else lastTap = now;
+    }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    V.userZoomed = true;
+    V.radius = clampRadius(V.radius * (1 + Math.sign(e.deltaY) * 0.12));
+  }, { passive:false });
+}
+
+// Ease the camera to new angles, distance and look-at point. Theta takes the short way round.
+function animateTo(th, ph, r, target, dur){
+  const dth = Math.atan2(Math.sin(th - V.theta), Math.cos(th - V.theta));
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !dur){
+    V.theta += dth; V.phi = ph; V.radius = r; V.target.copy(target); V.anim = null; return;
+  }
+  V.anim = { t0: performance.now(), dur,
+             th0:V.theta, th1:V.theta + dth, ph0:V.phi, ph1:ph, r0:V.radius, r1:r,
+             tg0:V.target.clone(), tg1:target.clone() };
+}
+
+function finishAnim(){
+  const a = V.anim;
+  if (!a) return;
+  V.theta = a.th1; V.phi = a.ph1; V.radius = a.r1; V.target.copy(a.tg1); V.anim = null;
+}
+
+function fitView(){
+  if (!V.ready || !V.lastData) return;
+  V.userZoomed = false;
+  const f = viewFrame();
+  animateTo(V.theta, V.phi, fitDistance(V.theta, V.phi, f), f.target, 420);
+}
+
+// Follow the row being loaded: keep the user's angle, slide the camera along the container.
+function focusCamera(){
+  if (!V.ready || !V.lastData) return;
+  const f = viewFrame(), a = V.anim;
+  const th = a ? a.th1 : V.theta, ph = a ? a.ph1 : V.phi;
+  const r = V.userZoomed ? (a ? a.r1 : V.radius) : fitDistance(th, ph, f);
+  animateTo(th, ph, r, f.target, 380);
+}
+
+function updateCamera(){
+  const t = V.target;
+  V.camera.position.set(
+    t.x + V.radius * Math.sin(V.phi) * Math.cos(V.theta),
+    t.y + V.radius * Math.cos(V.phi),
+    t.z + V.radius * Math.sin(V.phi) * Math.sin(V.theta)
+  );
+  V.camera.lookAt(t);
+}
+
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+  if (V.anim){
+    const a = V.anim, k = Math.min(1, (performance.now() - a.t0) / a.dur);
+    const e = k < .5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+    V.theta = a.th0 + (a.th1 - a.th0) * e;
+    V.phi   = a.ph0 + (a.ph1 - a.ph0) * e;
+    V.radius= a.r0  + (a.r1  - a.r0)  * e;
+    V.target.lerpVectors(a.tg0, a.tg1, e);
+    if (k >= 1) V.anim = null;
+  } else if (V.spin){
+    V.theta += 0.0035;
+    if (!V.userZoomed) V.radius = fitDistance(V.theta, V.phi);
+  }
+  updateCamera();
+  V.renderer.render(V.scene, V.camera);
+}
+
+function gotoView(name){
+  if (!V.ready || !V.lastData) return;
+  const a = VIEW_ANGLES[name] || VIEW_ANGLES.iso;
+  V.userZoomed = false;
+  const f = viewFrame();
+  animateTo(a.th, a.ph, fitDistance(a.th, a.ph, f), f.target, 600);
+}
+
+function frameScene(){
+  gotoView(siteMode ? V.siteView : currentView);
+}
+
+function clearGroup(g){
+  while (g.children.length){
+    const c = g.children.pop();
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => m.dispose());
+  }
+}
+
+function buildScene(c, parts, filt){
+  if (!V.ready) return;
+  const S = 0.01; // cm -> scene units (metres)
+  const L = c.intL/10 * S, W = c.intW/10 * S, H = c.intH/10 * S;
+  V.lastData = { lenU: L, widU: W, hgtU: H, lenCm: c.intL/10 };
+
+  V.renderer.setClearColor(new THREE.Color(cssVar('--stage')), 1);
+
+  clearGroup(V.boxGroup);
+  clearGroup(V.shellGroup);
+
+  // container shell
+  const shellGeo = new THREE.BoxGeometry(L, H, W);
+  const shellMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(cssVar('--muted')), transparent:true, opacity:0.055,
+    side: THREE.BackSide, depthWrite:false
+  });
+  const shell = new THREE.Mesh(shellGeo, shellMat);
+  shell.position.y = H/2;
+  V.shellGroup.add(shell);
+
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(shellGeo),
+    new THREE.LineBasicMaterial({ color: new THREE.Color(cssVar('--ink-soft')), transparent:true, opacity:0.55 })
+  );
+  edges.position.y = H/2;
+  V.shellGroup.add(edges);
+
+  const floor = new THREE.Mesh(
+    new THREE.BoxGeometry(L, H*0.012, W),
+    new THREE.MeshLambertMaterial({ color: new THREE.Color(cssVar('--line')) })
+  );
+  floor.position.y = -H*0.006;
+  V.shellGroup.add(floor);
+
+  // door frame at +X end
+  const doorGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(L*0.004, H*0.96, W*0.98));
+  const door = new THREE.LineSegments(doorGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(cssVar('--accent')) }));
+  door.position.set(L/2, H*0.48, 0);
+  V.shellGroup.add(door);
+
+  V.shellGroup.visible = V.showShell;
+
+  // boxes
+  const colMain = new THREE.Color(cssVar('--accent'));
+  const colFill = new THREE.Color(cssVar('--accent-2'));
+  // Rows already loaded fade toward the stage so the row to place now stands out.
+  const stage = new THREE.Color(cssVar('--stage'));
+  const pastMain = colMain.clone().lerp(stage, 0.6);
+  const pastFill = colFill.clone().lerp(stage, 0.6);
+  const hlY = filt.highlightY ?? null;
+  const dummy = new THREE.Object3D();
+  const GAP = 0.94;
+
+  // Walk the container in loading order (front row first, bottom layer up, across the width)
+  // without materialising every box, so a container of tiny cartons stays responsive.
+  const rowMap = new Map();
+  parts.forEach((p, pi) => {
+    for (let i=0; i<p.ny; i++){
+      const rowY = p.y + i*p.ol;
+      if (rowY < filt.rowFrom - 0.01 || rowY > filt.rowTo + 0.01) continue;
+      const key = Math.round(rowY*100)/100;
+      if (!rowMap.has(key)) rowMap.set(key, []);
+      rowMap.get(key).push(pi);
+    }
+  });
+  const ys = [...rowMap.keys()].sort((a,b) => a-b);
+
+  const layersOf = p => {
+    let n = 0;
+    for (let k=0; k<p.nz; k++) if (p.z + (k+1)*p.oh <= filt.cutoff + 0.01) n++;
+    return n;
+  };
+  let available = 0;
+  for (const y of ys) for (const pi of rowMap.get(y)) available += layersOf(parts[pi]) * parts[pi].nx;
+
+  const limit = Math.min(available, filt.maxBoxes ?? available);
+  const CAP = 40000;
+  const stride = limit > CAP ? Math.ceil(limit / CAP) : 1;
+
+  const byPart = new Map();
+  let seen = 0;
+  outer:
+  for (const y of ys){
+    for (const pi of rowMap.get(y)){
+      const p = parts[pi];
+      for (let k=0; k<p.nz; k++){
+        const zLo = p.z + k*p.oh;
+        if (zLo + p.oh > filt.cutoff + 0.01) continue;
+        for (let j=0; j<p.nx; j++){
+          if (seen >= limit) break outer;
+          const take = (seen % stride) === 0;
+          seen++;
+          if (!take) continue;
+          const hl = hlY === null || y === hlY;
+          const bucket = pi*2 + (hl ? 1 : 0);
+          if (!byPart.has(bucket)) byPart.set(bucket, []);
+          byPart.get(bucket).push({ ry:y, rz:zLo, rx:p.x + j*p.ow });
+        }
+      }
+    }
+  }
+
+  for (const [bucket, items] of byPart){
+    const p = parts[bucket >> 1], hl = (bucket & 1) === 1;
+    const geo = new THREE.BoxGeometry(p.ol*S*GAP, p.oh*S*GAP, p.ow*S*GAP);
+    const color = p.isMain ? (hl ? colMain : pastMain) : (hl ? colFill : pastFill);
+    const mat = new THREE.MeshLambertMaterial({ color });
+    const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+    items.forEach((b, idx) => {
+      dummy.position.set(
+        (b.ry + p.ol/2) * S - L/2,
+        (b.rz + p.oh/2) * S,
+        (b.rx + p.ow/2) * S - W/2
+      );
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    V.boxGroup.add(mesh);
+  }
+}
+
+function clearScene(){
+  if (!V.ready) return;
+  clearGroup(V.boxGroup);
+  clearGroup(V.shellGroup);
+  $('hud').textContent = '';
+}
+
+/* ---------------- rendering ---------------- */
+function renderSpecs(){
+  $('specsGrid').innerHTML = Object.values(CONTAINERS).map(c => `
+    <div class="plate">
+      <div class="code">${c.isoCode}</div>
+      <h3>${c.name}</h3>
+      <div class="sub">${c.sub}</div>
+      <div class="spec-rows">
+        <div class="row"><span>ภายนอก ก×ย×ส</span><span>${fmt(c.extW)}×${fmt(c.extL)}×${fmt(c.extH)}</span></div>
+        <div class="row"><span>ภายใน ก×ย×ส</span><span>${fmt(c.intW)}×${fmt(c.intL)}×${fmt(c.intH)}</span></div>
+        <div class="row"><span>ช่องประตู ก×ส</span><span>${fmt(c.doorW)}×${fmt(c.doorH)}</span></div>
+        <div class="row"><span>ตู้เปล่า (Tare)</span><span>${fmt(c.tare)} กก.</span></div>
+        <div class="row"><span>บรรทุกสูงสุด</span><span>${fmt(payloadOf(c))} กก.</span></div>
+        <div class="row"><span>น้ำหนักรวมสูงสุด (ISO)</span><span>${fmt(c.maxGross)} กก.</span></div>
+      </div>
+      <div class="cap-badge"><b>${containerCBM(c).toFixed(2)}</b><span>ลบ.ม. (CBM) คำนวณจากขนาดภายใน · หน่วยอื่นเป็น มม.</span></div>
+    </div>`).join('');
+}
+
+function populateSelect(){
+  $('containerSelect').innerHTML = Object.entries(CONTAINERS)
+    .map(([k,c]) => `<option value="${k}">${c.name} — ${containerCBM(c).toFixed(1)} CBM</option>`).join('');
+  $('containerSelect').value = 'd40hc';
+}
+
+let currentView = 'iso';
+let lastResult = null;
+let lastContainerKey = null;
+
+// Invalid input: blank every result so nothing stale from the previous box stays on screen.
+function showNoResult(message){
+  lastResult = null; rowsList = [];
+  stopPlay();
+  clearScene();
+  ['sPerRow','sRows','sLayers','sNeed'].forEach(id => { $(id).textContent = '—'; });
+  $('sTotal').innerHTML = '—<small> กล่อง</small>';
+  $('howtoList').innerHTML = '';
+  $('howtoExtra').textContent = '';
+  $('breakdownBody').innerHTML = '';
+  $('compareBody').innerHTML = '';
+  $('limiterHost').innerHTML = `<div class="limiter error"><span class="dot"></span>${message}</div>`;
+  $('volFill').style.width = '0%';
+  $('wtFill').style.width = '0%';
+  $('volText').textContent = '—';
+  $('wtText').textContent = '—';
+  $('stepReadout').textContent = '—';
+  updateSitePanel();
+}
+
+function calculate(){
+  const key = $('containerSelect').value;
+  const c = CONTAINERS[key];
+  const w = parseFloat($('boxW').value) || 0;
+  const l = parseFloat($('boxL').value) || 0;
+  const h = parseFloat($('boxH').value) || 0;
+  const kg = parseFloat($('boxWeight').value) || 0;
+  const qtyRaw = parseInt($('totalQty').value, 10);
+  const qty = qtyRaw > 0 ? qtyRaw : null;   // blank/0 = no quantity limit, show the full container
+  const maxStack = Math.max(0, parseInt($('maxStack').value, 10) || 0);
+  const mixed = $('allowMixed').checked;
+  const opt = { mixed, maxStack, maxDepth: mixed ? 2 : 0 };
+
+  $('footNote').textContent = `ขนาดภายใน ${c.name} ที่ใช้คำนวณ: ${trim(c.intW/10)} × ${trim(c.intL/10)} × ${trim(c.intH/10)} ซม. (กว้าง×ยาว×สูง) · น้ำหนักบรรทุกสูงสุด ${fmt(payloadOf(c))} กก. — ตัวเลขเป็นค่ามาตรฐานอุตสาหกรรม อาจต่างกันเล็กน้อยตามผู้ผลิตและสายเรือ ควรตรวจสอบกับสายเรือก่อนบุ๊กกิ้งจริง`;
+
+  if (w < MIN_BOX || l < MIN_BOX || h < MIN_BOX){
+    const msg = `ใส่ขนาดกล่องให้ครบทั้งกว้าง ยาว สูง (อย่างน้อย ${MIN_BOX} ซม.)`;
+    $('calcMeta').textContent = msg;
+    showNoResult(msg);
+    return;
+  }
+
+  $('calcMeta').textContent = `กล่อง ${trim(w)} × ${trim(l)} × ${trim(h)} ซม. · ` +
+    (kg > 0 ? `${trim(kg)} กก./กล่อง` : 'ยังไม่ระบุน้ำหนัก (ไม่คิดลิมิตน้ำหนัก)');
+
+  s2d.clear();
+  packDeadline = Date.now() + 800;
+  const box = makeBox(w,l,h,$('allowRotate').checked);
+  const res = packContainer(c, box, opt);
+  const geom = res.count;
+  const wtCap = kg > 0 ? Math.floor(payloadOf(c) / kg) : Infinity;
+  const perContainer = Math.min(geom, wtCap);
+  const loaded = qty === null ? perContainer : Math.min(perContainer, qty);
+  const containers = (qty !== null && perContainer > 0) ? Math.ceil(qty / perContainer) : 0;
+  const lastLoad = containers > 0 ? qty - perContainer*(containers-1) : 0;
+  const partialLoad = qty !== null && qty < perContainer;
+  const main = res.parts[0];
+  lastResult = { c, res, main, perContainer, loaded };
+  rowsList = computeRows(res.parts);
+
+  $('sPerRow').textContent = main ? main.nx : '0';
+  $('sRows').textContent   = main ? main.ny : '0';
+  $('sLayers').textContent = main ? main.nz : '0';
+  $('sTotal').innerHTML    = `${fmt(perContainer)}<small> กล่อง</small>`;
+  $('sNeed').innerHTML     = containers ? `${fmt(containers)}<small> ตู้</small>` : '—';
+
+  const list = $('howtoList');
+  if (!main){
+    list.innerHTML = `<li>กล่องขนาดนี้ใหญ่เกินกว่าจะใส่ตู้ ${c.name} ได้</li>`;
+    $('howtoExtra').textContent = '';
+  } else {
+    list.innerHTML = `
+      <li>หันด้าน <b>${trim(main.ow)} ซม.</b> ขวางความกว้างตู้ → วางได้ <b>${main.nx} กล่องต่อแถว</b></li>
+      <li>หันด้าน <b>${trim(main.ol)} ซม.</b> ไปตามความยาวตู้ → เรียงได้ <b>${main.ny} แถว</b> = <b>${fmt(main.nx*main.ny)} กล่องต่อชั้น</b></li>
+      <li>ด้าน <b>${trim(main.oh)} ซม.</b> เป็นความสูง → ซ้อนได้ <b>${main.nz} ชั้น</b> (สูงรวม ${trim(main.nz*main.oh)} ซม.)</li>
+      <li>บล็อกหลักรวม <b>${fmt(main.nx*main.ny*main.nz)} กล่อง</b></li>`;
+    const fillers = res.parts.slice(1).reduce((s,p)=>s+p.nx*p.ny*p.nz,0);
+    const volLimit = Math.floor(containerCBM(c) / ((w*l*h)/1e6));
+    let extra = `ระบบเลือกรูปแบบที่บรรจุได้มากที่สุดจากทุกแนววางและทุกรูปแบบการตัดพื้นที่แล้ว`;
+    if (fillers > 0) extra += ` → นอกจากบล็อกหลัก ยังเติมได้อีก ${fmt(fillers)} กล่อง จาก ${res.parts.length - 1} กลุ่มที่วางสลับแนว`;
+    extra += ` · ได้ ${((geom/volLimit)*100).toFixed(1)}% ของขีดจำกัดทางปริมาตร (สูงสุดตามทฤษฎี ${fmt(volLimit)} กล่อง ซึ่งวางจริงไม่ได้เพราะกล่องตัดแบ่งไม่ได้)`;
+    if (wtCap < geom) extra += ` ⚠ น้ำหนักเต็มก่อนที่ ${fmt(wtCap)} กล่อง จึงโหลดได้จริง ${fmt(perContainer)} กล่อง`;
+    if (partialLoad) extra += ` · คุณส่งแค่ ${fmt(qty)} กล่อง ตู้จึงไม่เต็ม — โมเดลแสดงเท่าที่โหลดจริง`;
+    else if (containers > 1) extra += ` · ส่ง ${fmt(qty)} กล่อง = ${fmt(containers)} ตู้ (ตู้สุดท้ายมี ${fmt(lastLoad)} กล่อง)`;
+    $('howtoExtra').textContent = extra;
+  }
+
+  stopPlay();
+  const slider = $('stepSlider');
+  slider.max = stepMax();
+  slider.value = (viewMode === 'row') ? 1 : slider.max;
+
+  if (main){
+    refreshScene();
+    if (V.ready && key !== lastContainerKey){ lastContainerKey = key; frameScene(); }
+  } else {
+    clearScene();
+    if (V.ready) $('hud').textContent = 'กล่องใหญ่เกินกว่าจะใส่ตู้นี้ได้';
+    updateSitePanel();
+  }
+
+  const MAX_ROWS = 14;
+  const shown = res.parts.slice(0, MAX_ROWS);
+  const hidden = res.parts.slice(MAX_ROWS);
+  $('breakdownBody').innerHTML = shown.map((p,i) => {
+    const label = i === 0 ? 'บล็อกหลัก' : `กลุ่มที่ ${i+1}`;
+    const pos = `ห่างหัวตู้ ${trim(p.y)} · ชิดข้าง ${trim(p.x)} · สูงจากพื้น ${trim(p.z)} ซม.`;
+    return `<tr>
+      <td><span class="swatch ${p.isMain ? 'sw-main' : 'sw-fill'}"></span>${label}
+        <div class="pos">${pos}</div></td>
+      <td class="num">${trim(p.ow)} × ${trim(p.ol)} × ${trim(p.oh)}</td>
+      <td class="num">${p.nx}</td><td class="num">${p.ny}</td><td class="num">${p.nz}</td>
+      <td class="num">${fmt(p.nx*p.ny*p.nz)}</td></tr>`;
+  }).join('')
+  + (hidden.length ? `<tr><td colspan="5" class="more">และอีก ${hidden.length} กลุ่มย่อย</td><td class="num">${fmt(hidden.reduce((s,p)=>s+p.nx*p.ny*p.nz,0))}</td></tr>` : '')
+  + `<tr class="total"><td><b>รวมทั้งหมด</b></td><td></td><td></td><td></td><td></td><td class="num">${fmt(geom)}</td></tr>`;
+
+  const limHost = $('limiterHost');
+  if (!main){
+    limHost.innerHTML = `<div class="limiter error"><span class="dot"></span>กล่องใหญ่เกินขนาดภายในตู้</div>`;
+  } else if (wtCap < geom){
+    limHost.innerHTML = `<div class="limiter weight"><span class="dot"></span>ปัจจัยจำกัด: <b>น้ำหนักบรรทุก</b> — พื้นที่ยังใส่ได้อีก ${fmt(geom-wtCap)} กล่อง</div>`;
+  } else if (partialLoad){
+    limHost.innerHTML = `<div class="limiter"><span class="dot"></span>ปัจจัยจำกัด: <b>จำนวนที่ส่ง</b> — ตู้ยังว่าง ใส่เพิ่มได้อีก ${fmt(perContainer - qty)} กล่อง</div>`;
+  } else {
+    limHost.innerHTML = `<div class="limiter"><span class="dot"></span>ปัจจัยจำกัด: <b>พื้นที่ภายในตู้</b> — น้ำหนักยังรับได้อีก ${fmt(Math.max(0, payloadOf(c) - perContainer*kg))} กก.</div>`;
+  }
+
+  // Utilisation reflects what this container actually carries, not its theoretical capacity.
+  const boxCBM = (w*l*h)/1e6;
+  const cbm = containerCBM(c);
+  const usedVol = loaded * boxCBM;
+  const volPct = Math.min(100, usedVol / cbm * 100);
+  const wtPct  = Math.min(100, loaded*kg / payloadOf(c) * 100);
+  $('volFill').style.width = volPct + '%';
+  $('wtFill').style.width = wtPct + '%';
+  $('volLabel').textContent = partialLoad ? 'ใช้ปริมาตรตู้ (โหลดจริง)' : 'ใช้ปริมาตรตู้ (เต็มตู้)';
+  $('wtLabel').textContent  = partialLoad ? 'ใช้น้ำหนักบรรทุก (โหลดจริง)' : 'ใช้น้ำหนักบรรทุก (เต็มตู้)';
+  $('volText').textContent = `${volPct.toFixed(1)}%  ·  ${usedVol.toFixed(2)} / ${cbm.toFixed(1)} CBM`;
+  $('wtText').textContent  = `${wtPct.toFixed(1)}%  ·  ${fmt(loaded*kg)} / ${fmt(payloadOf(c))} กก.`;
+
+  $('compareBody').innerHTML = Object.entries(CONTAINERS).map(([k,cc]) => {
+    const r = k === key ? res : packContainer(cc, box, opt);   // selected container is already packed
+    const m = r.parts[0];
+    const wc = kg > 0 ? Math.floor(payloadOf(cc) / kg) : Infinity;
+    const cap = Math.min(r.count, wc);
+    const ccbm = containerCBM(cc);
+    const fullPct = cap > 0 ? (cap*boxCBM / ccbm * 100) : 0;
+    const need = (cap > 0 && qty !== null) ? Math.ceil(qty / cap) : 0;
+    const last = need > 0 ? qty - cap*(need-1) : 0;
+    const lastPct = cap > 0 ? (last*boxCBM / ccbm * 100) : 0;
+    const isSel = k === key;
+    return `<tr${isSel ? ' class="selected"' : ''}>
+      <td><b>${cc.name}</b>${isSel ? ' <span class="sel-tag">● เลือกอยู่</span>' : ''}</td>
+      <td class="num">${m ? m.nx : '—'}</td>
+      <td class="num">${m ? `${m.ny} × ${m.nz}` : '—'}</td>
+      <td class="num">${cap ? fmt(cap) : '—'}</td>
+      <td class="num">${cap ? fullPct.toFixed(1)+'%' : '—'}</td>
+      <td class="num accent">${need ? fmt(need)+' ตู้' : '—'}</td>
+      <td class="num">${need ? `${fmt(last)} <span class="dim">(${lastPct.toFixed(0)}%)</span>` : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ---------------- view modes: whole container / layer / row ---------------- */
+let viewMode = 'all';
+let rowsList = [];
+let playTimer = null;
+
+// Every distinct loading position along the container length, front to door.
+function computeRows(parts){
+  const map = new Map();
+  for (const p of parts){
+    for (let i=0; i<p.ny; i++){
+      const y = Math.round((p.y + i*p.ol) * 100) / 100;
+      const e = map.get(y) || { y, count:0, depth:0, groups:[] };
+      e.count += p.nx * p.nz;
+      e.depth = Math.max(e.depth, p.ol);
+      const sig = `${p.nx}|${p.nz}|${p.ow}|${p.ol}|${p.oh}`;
+      const g = e.groups.find(x => x.sig === sig);
+      if (g) g.count += p.nx*p.nz;
+      else e.groups.push({ sig, nx:p.nx, nz:p.nz, ow:p.ow, ol:p.ol, oh:p.oh, count:p.nx*p.nz });
+      map.set(y, e);
+    }
+  }
+  const rows = [...map.values()].sort((a,b) => a.y - b.y);
+  rows.forEach(r => {
+    r.detail = r.groups.length === 1
+      ? `${r.groups[0].nx} ใบ × ${r.groups[0].nz} ชั้น`
+      : `${r.groups.length} กลุ่มผสม`;
+  });
+  return rows;
+}
+
+function stepMax(){
+  if (viewMode === 'layer') return lastResult && lastResult.main ? lastResult.main.nz : 1;
+  if (viewMode === 'row') return Math.max(1, rowsNeeded());
+  return 1;
+}
+
+// Rows it takes to load this shipment; rows past that stay empty when the container isn't full.
+function rowsNeeded(){
+  if (!lastResult) return rowsList.length;
+  let cum = 0;
+  for (let i=0; i<rowsList.length; i++){
+    cum += rowsList[i].count;
+    if (cum >= lastResult.loaded) return i + 1;
+  }
+  return rowsList.length;
+}
+
+function currentFilter(){
+  const f = { cutoff: 1e6, rowFrom: -1e6, rowTo: 1e6, maxBoxes: null, highlightY: null };
+  if (!lastResult || !lastResult.main) return f;
+  f.maxBoxes = lastResult.loaded;
+  const s = $('stepSlider');
+  if (viewMode === 'layer'){
+    f.cutoff = (+s.value >= +s.max) ? lastResult.c.intH/10 : lastResult.main.oh * +s.value;
+  } else if (viewMode === 'row'){
+    const r = rowsList[activeRowIndex()];
+    if (r){
+      f.rowTo = r.y;
+      if ($('isolateOnly').checked) f.rowFrom = r.y;
+      else if (siteMode) f.highlightY = r.y;
+    }
+  }
+  return f;
+}
+
+function updateStepReadout(){
+  const s = $('stepSlider'), out = $('stepReadout');
+  if (viewMode === 'layer'){
+    out.textContent = `ชั้น ${s.value} / ${s.max}`;
+  } else if (viewMode === 'row'){
+    const i = activeRowIndex();
+    if (i < 0){ out.textContent = '—'; return; }
+    const { r, inRow, cum } = rowProgress(i);
+    out.textContent = $('isolateOnly').checked
+      ? `แถว ${i+1}/${s.max} · ${fmt(r.count)} กล่อง (${r.detail}) · ห่างหัวตู้ ${trim(r.y)} ซม.`
+      : `แถว ${i+1}/${s.max} · แถวนี้ ${fmt(inRow)} กล่อง (${r.detail}) · โหลดแล้ว ${fmt(cum)}`;
+  } else {
+    out.textContent = '';
+  }
+  $('stepPrev').disabled = +s.value <= 1;
+  $('stepNext').disabled = +s.value >= +s.max;
+}
+
+function updateHud(){
+  const { c, main, perContainer, loaded } = lastResult;
+  let line2 = loaded < perContainer
+    ? `${c.name} · โหลด ${fmt(loaded)} กล่อง (ความจุ ${fmt(perContainer)})`
+    : `${c.name} · เต็มตู้ ${fmt(perContainer)} กล่อง`;
+  if (viewMode === 'row'){
+    const i = activeRowIndex();
+    if (i >= 0){
+      const { r, cum } = rowProgress(i);
+      line2 = $('isolateOnly').checked
+        ? `แถวที่ ${i+1} · ${fmt(r.count)} กล่อง`
+        : `โหลดถึงแถวที่ ${i+1} · ${fmt(cum)} / ${fmt(loaded)} กล่อง`;
+    }
+  } else if (viewMode === 'layer'){
+    line2 = `แสดง ${$('stepSlider').value} ชั้นแรก · ${c.name}`;
+  }
+  $('hud').innerHTML = `${main.nx} กล่อง/แถว × ${main.ny} แถว × ${main.nz} ชั้น<br>${line2}`;
+}
+
+function refreshScene(){
+  updateSitePanel();
+  if (!lastResult || !lastResult.main || !V.ready) return;
+  buildScene(lastResult.c, lastResult.res.parts, currentFilter());
+  updateStepReadout();
+  updateHud();
+  if (siteMode) focusCamera();
+}
+
+function stepBy(delta){
+  const s = $('stepSlider');
+  const next = Math.min(+s.max, Math.max(1, +s.value + delta));
+  if (next === +s.value) return;
+  s.value = String(next);
+  stopPlay();
+  refreshScene();
+  if (siteMode && navigator.vibrate) navigator.vibrate(8);
+}
+
+function stopPlay(){
+  clearInterval(playTimer); playTimer = null;
+  $('stepPlay').setAttribute('aria-pressed', 'false');
+  $('stepPlay').textContent = '►';
+}
+
+function togglePlay(){
+  if (playTimer){ stopPlay(); return; }
+  const s = $('stepSlider');
+  if (+s.value >= +s.max){ s.value = '1'; refreshScene(); }
+  $('stepPlay').setAttribute('aria-pressed', 'true');
+  $('stepPlay').textContent = '❚❚';
+  playTimer = setInterval(() => {
+    const cur = +s.value;
+    if (cur >= +s.max){ stopPlay(); return; }
+    s.value = String(cur + 1);
+    refreshScene();
+  }, 320);
+}
+
+function setMode(m){
+  stopPlay();
+  viewMode = m;
+  setPressed('.mode-switch button', b => b.dataset.mode === m);
+  $('stepRow').hidden = m === 'all' || !V.ready;
+  $('isolateWrap').hidden = m !== 'row';
+  const s = $('stepSlider');
+  s.max = stepMax();
+  s.value = (m === 'row') ? 1 : s.max;
+  refreshScene();
+}
+
+function setSpin(on){
+  V.spin = on;
+  $('btnSpin').setAttribute('aria-pressed', String(on));
+}
+
+/* ---------------- โหมดหน้างาน ---------------- */
+let siteMode = false;
+
+// One row at a time, written as an instruction the person loading the container can follow.
+function updateSitePanel(){
+  if (!siteMode) return;
+  const panel = $('sitePanel');
+  const lr = lastResult;
+  if (!lr || !lr.main){
+    $('siteContext').textContent = 'ยังไม่มีผลคำนวณ';
+    panel.innerHTML = '<div class="site-sub">ใส่ขนาดกล่องให้ครบ แล้วกด “ตั้งค่า” เพื่อแก้ไข</div>';
+    $('siteBack').disabled = true; $('siteNext').disabled = true;
+    return;
+  }
+  const { c, loaded } = lr;
+  $('siteTitle').textContent = c.name;
+  $('siteContext').textContent =
+    `กล่อง ${trim(+$('boxW').value)}×${trim(+$('boxL').value)}×${trim(+$('boxH').value)} ซม. · ${fmt(loaded)} กล่อง`;
+
+  const total = rowsNeeded();
+  const idx = Math.min(activeRowIndex(), total - 1);
+  const { r, inRow, cum } = rowProgress(idx);
+  const pct = loaded > 0 ? Math.min(100, cum / loaded * 100) : 0;
+
+  const g0 = r.groups[0];
+  let html = `
+    <div class="sp-top">
+      <span class="site-rowno">แถวที่ ${idx+1} / ${total} · ห่างหัวตู้ ${trim(r.y)} ซม.</span>
+      <span class="sp-count">${fmt(inRow)} กล่อง</span>
+    </div>
+    <div class="site-big"><b>${g0.nx}</b> ใบต่อแถว × <b>${g0.nz}</b> ชั้น</div>
+    <div class="orient">
+      <div><span>↔ ขวางตู้</span><b>${trim(g0.ow)}<small> ซม.</small></b></div>
+      <div><span>⇡ ตามยาวตู้</span><b>${trim(g0.ol)}<small> ซม.</small></b></div>
+      <div><span>↕ ความสูง</span><b>${trim(g0.oh)}<small> ซม.</small></b></div>
+    </div>`;
+  if (r.groups.length > 1){
+    html += `<div class="site-alt"><b>แถวนี้วางสลับแนว</b> — นอกจากด้านบน ยังมี:` +
+      r.groups.slice(1).map(g =>
+        `<br>• <b>${g.nx}</b> ใบ × <b>${g.nz}</b> ชั้น หันด้าน <b>${trim(g.ow)}</b> ขวางตู้ / <b>${trim(g.ol)}</b> ตามยาว`
+      ).join('') + `</div>`;
+  }
+  if (inRow < r.count){
+    html += `<div class="site-last">แถวสุดท้าย — วางแค่ ${fmt(inRow)} จาก ${fmt(r.count)} กล่อง ตามจำนวนที่ส่ง</div>`;
+  }
+  html += `
+    <div class="site-prog">
+      <div class="site-prog-head"><span class="l">โหลดแล้ว</span><span class="r">${fmt(cum)} / ${fmt(loaded)} กล่อง</span></div>
+      <div class="site-track"><div style="width:${pct}%"></div></div>
+    </div>
+    <div class="site-tip">ปัดการ์ดซ้าย/ขวาเพื่อเปลี่ยนแถว · แตะโมเดล 2 ครั้งเพื่อพอดีจอ</div>`;
+  panel.innerHTML = html;
+
+  const last = idx >= total - 1;
+  $('siteBack').disabled = idx <= 0;
+  $('siteNext').disabled = last;
+  $('siteNext').innerHTML = last ? 'โหลดครบแล้ว ✓' : `แถวถัดไป →<small>ไปแถวที่ ${idx+2} จาก ${total}</small>`;
+}
+
+function setSiteMode(on){
+  siteMode = on;
+  document.body.classList.toggle('site-mode', on);
+  if (!on) setSheet(false);
+  $('btnSiteMode').textContent = on ? 'กลับโหมดเต็ม' : 'โหมดหน้างาน';
+  $('btnSiteMode').setAttribute('aria-pressed', String(on));
+  setSpin(false);
+  resizeViewer();              // size the stage for this layout before framing it
+  V.userZoomed = false;
+  setMode(on ? 'row' : 'all');
+  frameScene();
+}
+
+function setSheet(open){
+  document.body.classList.toggle('show-inputs', open);
+  $('btnSiteSettings').setAttribute('aria-expanded', String(open));
+}
+
+/* ---------------- wiring ---------------- */
+renderSpecs();
+populateSelect();
+if (!initViewer()){
+  $('viewer').innerHTML = '<p class="viewer-fallback">เบราว์เซอร์นี้ไม่รองรับการแสดงผล 3 มิติ (WebGL) — ตัวเลขการจัดเรียงด้านล่างยังใช้งานได้ตามปกติ</p>';
+  document.querySelector('.view-controls').hidden = true;
+  document.querySelector('.mode-row').hidden = true;
+}
+
+let calcTimer = null;
+function scheduleCalc(){
+  $('calcMeta').textContent = 'กำลังคำนวณรูปแบบที่ดีที่สุด…';
+  clearTimeout(calcTimer);
+  calcTimer = setTimeout(calculate, 220);
+}
+['containerSelect','boxW','boxL','boxH','boxWeight','totalQty','maxStack','allowRotate','allowMixed']
+  .forEach(id => $(id).addEventListener('input', scheduleCalc));
+
+$('stepSlider').addEventListener('input', () => { stopPlay(); refreshScene(); });
+$('isolateOnly').addEventListener('change', refreshScene);
+$('stepPrev').addEventListener('click', () => stepBy(-1));
+$('stepNext').addEventListener('click', () => stepBy(1));
+$('stepPlay').addEventListener('click', togglePlay);
+document.querySelectorAll('.mode-switch button').forEach(b => {
+  b.addEventListener('click', () => setMode(b.dataset.mode));
+});
+
+document.querySelectorAll('[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentView = btn.dataset.view;
+    setPressed('[data-view]', b => b === btn);
+    setSpin(false);
+    gotoView(currentView);
+  });
+});
+$('btnShell').addEventListener('click', () => {
+  V.showShell = !V.showShell;
+  if (V.shellGroup) V.shellGroup.visible = V.showShell;
+  $('btnShell').setAttribute('aria-pressed', String(V.showShell));
+});
+$('btnSpin').addEventListener('click', () => setSpin(!V.spin));
+$('btnFit').addEventListener('click', fitView);
+$('btnSiteMode').addEventListener('click', () => setSiteMode(!siteMode));
+$('btnSiteExit').addEventListener('click', () => setSiteMode(false));
+$('btnSiteSettings').addEventListener('click', () =>
+  setSheet(!document.body.classList.contains('show-inputs')));
+$('btnSheetDone').addEventListener('click', () => setSheet(false));
+$('sheetBackdrop').addEventListener('click', () => setSheet(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setSheet(false); });
+$('siteBack').addEventListener('click', () => stepBy(-1));
+$('siteNext').addEventListener('click', () => stepBy(1));
+
+document.querySelectorAll('[data-sview]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    V.siteView = btn.dataset.sview;
+    setPressed('[data-sview]', b => b === btn);
+    setSpin(false);
+    gotoView(V.siteView);
+  });
+});
+document.querySelectorAll('[data-focus]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    V.focusRow = btn.dataset.focus === 'row';
+    setPressed('[data-focus]', b => b === btn);
+    V.userZoomed = false;
+    focusCamera();
+  });
+});
+
+// Swipe the instruction card to move between rows without reaching for the buttons.
+(() => {
+  let sx = 0, sy = 0, t0 = 0;
+  const el = $('sitePanel');
+  el.addEventListener('touchstart', e => {
+    const p = e.changedTouches[0]; sx = p.clientX; sy = p.clientY; t0 = Date.now();
+  }, { passive:true });
+  el.addEventListener('touchend', e => {
+    const p = e.changedTouches[0], dx = p.clientX - sx, dy = p.clientY - sy;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && Date.now() - t0 < 700)
+      stepBy(dx < 0 ? 1 : -1);
+  }, { passive:true });
+})();
+
+// Rotating the phone changes the height budget, not only the width.
+let resizeRaf = 0;
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(resizeViewer);
+});
+
+// Theme switch only changes colours — rebuild the scene, no need to re-run the packer.
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', refreshScene);
+
+calculate();
+
+// Phones default straight into the loading-dock view — held upright or turned sideways.
+const isPhone = window.innerWidth < 760 ||
+  (window.matchMedia('(pointer: coarse)').matches && window.innerHeight < 500);
+if (isPhone) setSiteMode(true);
+</script>
+</body>
+</html>
